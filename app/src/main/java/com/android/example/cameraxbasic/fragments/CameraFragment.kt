@@ -26,6 +26,7 @@ import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import android.net.wifi.WifiManager
 
 // Imports Web e Imagem Nativa
 import android.content.Intent
@@ -47,6 +48,20 @@ class CameraFragment : Fragment() {
     private var cameraProvider: ProcessCameraProvider? = null
     private lateinit var windowManager: WindowManager
 
+    private fun updateServerInfo(ip: String, port: Int) {
+        cameraUiContainerBinding?.serverInfo?.text = "Servidor: http://$ip:$port"
+    }
+
+    private fun getIpAddress(): String {
+        val wifiManager = requireContext().applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val ipAddress = wifiManager.connectionInfo.ipAddress
+        return String.format("%d.%d.%d.%d", 
+            (ipAddress and 0xff), 
+            (ipAddress shr 8 and 0xff), 
+            (ipAddress shr 16 and 0xff), 
+            (ipAddress shr 24 and 0xff))
+    }
+    
     private val displayManager by lazy {
         requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
     }
@@ -93,6 +108,9 @@ class CameraFragment : Fragment() {
         // Inicia o serviço em background
         val serviceIntent = Intent(requireContext(), OpenCamService::class.java)
         ContextCompat.startForegroundService(requireContext(), serviceIntent)
+        
+        // Mostra o ip na tela
+        updateServerInfo(getIpAddress(), 8080)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

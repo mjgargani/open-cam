@@ -1,11 +1,5 @@
 {
   "java.configuration.updateBuildConfiguration": "automatic",
-  "java.configuration.runtimes": [
-      {
-          "name": "JavaSE-17",
-          "path": "/usr/lib/jvm/java-17-openjdk-amd64",
-          "default": true
-      }
-  ],
+  "java.jdt.ls.java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
   "gradle.java.home": "/usr/lib/jvm/java-17-openjdk-amd64"
 }
