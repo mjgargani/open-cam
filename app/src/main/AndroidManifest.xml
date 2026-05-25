@@ -28,6 +28,9 @@
 
     <!-- Declare permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".MainApplication"
@@ -78,6 +81,11 @@
             <meta-data android:name="android.notch_support" android:value="true"/>
 
         </activity>
+
+        <service
+            android:name=".OpenCamService"
+            android:foregroundServiceType="camera"
+            android:exported="false" />
 
     </application>
 

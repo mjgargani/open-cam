@@ -28,12 +28,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 // Imports Web e Imagem Nativa
-import fi.iki.elonen.NanoHTTPD
-import java.io.ByteArrayInputStream
-import android.graphics.ImageFormat
-import android.graphics.Rect
-import android.graphics.YuvImage
-import java.io.ByteArrayOutputStream
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.android.example.cameraxbasic.OpenCamService
 
 class CameraFragment : Fragment() {
 
@@ -49,9 +46,6 @@ class CameraFragment : Fragment() {
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private lateinit var windowManager: WindowManager
-
-    // Variável do Servidor Web
-    private var webServer: CameraServer? = null
 
     private val displayManager by lazy {
         requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -79,7 +73,6 @@ class CameraFragment : Fragment() {
 
     override fun onDestroyView() {
         _fragmentCameraBinding = null
-        webServer?.stop() // Desliga o servidor ao sair da tela
         super.onDestroyView()
     }
 
@@ -97,9 +90,9 @@ class CameraFragment : Fragment() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         windowManager = WindowManager(view.context)
         
-        // Inicializa e liga o servidor na porta 8080
-        webServer = CameraServer()
-        webServer?.start()
+        // Inicia o serviço em background
+        val serviceIntent = Intent(requireContext(), OpenCamService::class.java)
+        ContextCompat.startForegroundService(requireContext(), serviceIntent)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -123,20 +116,12 @@ class CameraFragment : Fragment() {
             .setTargetRotation(rotation)
             .build()
 
-        imageAnalyzer = ImageAnalysis.Builder()
-            .setTargetAspectRatio(screenAspectRatio)
-            .setTargetRotation(rotation)
-            .build()
-            .also {
-                it.setAnalyzer(cameraExecutor, FrameAnalyzer())
-            }
-
         cameraProvider.unbindAll()
 
         try {
-            // Liga apenas a tela (preview) e o analisador (para o servidor), sem função de foto estática
+            // Liga apenas a tela (preview), a análise será feita no serviço
             camera = cameraProvider.bindToLifecycle(
-                this, cameraSelector, preview, imageAnalyzer
+                this, cameraSelector, preview
             )
             preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
         } catch (exc: Exception) {
@@ -152,67 +137,8 @@ class CameraFragment : Fragment() {
         return AspectRatio.RATIO_16_9
     }
 
-    private class FrameAnalyzer : ImageAnalysis.Analyzer {
-        override fun analyze(image: ImageProxy) {
-            val androidImage = image.image ?: return
-            
-            val yBuffer = androidImage.planes[0].buffer 
-            val vuBuffer = androidImage.planes[2].buffer
-            
-            val ySize = yBuffer.remaining()
-            val vuSize = vuBuffer.remaining()
-            val nv21 = ByteArray(ySize + vuSize)
-            
-            yBuffer.get(nv21, 0, ySize)
-            vuBuffer.get(nv21, ySize, vuSize)
-            
-            val yuvImage = YuvImage(nv21, ImageFormat.NV21, androidImage.width, androidImage.height, null)
-            val out = ByteArrayOutputStream()
-            
-            yuvImage.compressToJpeg(Rect(0, 0, androidImage.width, androidImage.height), 80, out)
-            latestFrame = out.toByteArray()
-            
-            image.close()
-        }
-    }
-
     companion object {
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
-        var latestFrame: ByteArray? = null
-    }
-}
-
-class CameraServer(port: Int = 8080) : NanoHTTPD(port) {
-    override fun serve(session: IHTTPSession): Response {
-        return if (session.uri == "/cam") {
-            val frame = CameraFragment.latestFrame
-            if (frame != null) {
-                val inputStream = ByteArrayInputStream(frame)
-                newFixedLengthResponse(Response.Status.OK, "image/jpeg", inputStream, frame.size.toLong())
-            } else {
-                newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Aguardando...")
-            }
-        } else {
-            val html = """
-                <html>
-                <body style="background-color: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
-                    <img id="cam" src="" style="max-width: 100%; max-height: 100%;">
-                    <script>
-                        const img = document.getElementById('cam');
-                        function loadNextFrame() {
-                            setTimeout(() => {
-                                img.src = '/cam?' + new Date().getTime();
-                            }, 30);
-                        }
-                        img.onload = loadNextFrame;
-                        img.onerror = loadNextFrame;
-                        loadNextFrame(); 
-                    </script>
-                </body>
-                </html>
-            """.trimIndent()
-            newFixedLengthResponse(Response.Status.OK, "text/html", html)
-        }
     }
 }
