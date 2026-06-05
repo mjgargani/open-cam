@@ -175,6 +175,10 @@ class OpenCamService : LifecycleService() {
     }
 
     private class FrameAnalyzer : ImageAnalysis.Analyzer {
+        private var nv21: ByteArray? = null
+        private val out = ByteArrayOutputStream()
+
+        @SuppressLint("UnsafeOptInUsageError")
         override fun analyze(image: ImageProxy) {
             val androidImage = image.image ?: return
 
@@ -183,14 +187,18 @@ class OpenCamService : LifecycleService() {
 
             val ySize = yBuffer.remaining()
             val vuSize = vuBuffer.remaining()
-            val nv21 = ByteArray(ySize + vuSize)
+            val totalSize = ySize + vuSize
 
-            yBuffer.get(nv21, 0, ySize)
-            vuBuffer.get(nv21, ySize, vuSize)
+            if (nv21 == null || nv21!!.size < totalSize) {
+                nv21 = ByteArray(totalSize)
+            }
 
-            val yuvImage = YuvImage(nv21, ImageFormat.NV21, androidImage.width, androidImage.height, null)
-            val out = ByteArrayOutputStream()
+            yBuffer.get(nv21!!, 0, ySize)
+            vuBuffer.get(nv21!!, ySize, vuSize)
 
+            val yuvImage = YuvImage(nv21!!, ImageFormat.NV21, androidImage.width, androidImage.height, null)
+
+            out.reset()
             yuvImage.compressToJpeg(Rect(0, 0, androidImage.width, androidImage.height), 80, out)
             latestFrame = out.toByteArray()
 
