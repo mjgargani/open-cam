@@ -25,7 +25,8 @@ import androidx.test.rule.GrantPermissionRule
 import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * @see "https://developer.android.com/training/camerax/architecture.combine-use-cases"
@@ -65,7 +66,7 @@ class CameraPreviewTest : LifecycleOwner, ImageReader.OnImageAvailableListener, 
      *  By doing so we can ensure the camera binding is working as expected.
      */
     private val reader = ImageReader.newInstance(1920, 1080, ImageFormat.YUV_420_888, 30)
-    private val count = AtomicInteger(0)
+    private val latch = CountDownLatch(1)
 
     @Before
     fun setupImageReader() {
@@ -80,8 +81,8 @@ class CameraPreviewTest : LifecycleOwner, ImageReader.OnImageAvailableListener, 
 
     override fun onImageAvailable(reader: ImageReader) {
         reader.acquireNextImage().use { image ->
-            val imageNumber = count.getAndIncrement()
-            Log.i("CameraPreviewTest", String.format("image: %d %s", imageNumber, image))
+            latch.countDown()
+            Log.i("CameraPreviewTest", String.format("image acquired: %s", image))
         }
     }
 
@@ -145,13 +146,8 @@ class CameraPreviewTest : LifecycleOwner, ImageReader.OnImageAvailableListener, 
             request.provideSurface(surface, executor!!, this)
         })
 
-        // wait until onImageAvailable is invoked. retry several times
-        for (repeat in 5 downTo 0) {
-            Thread.sleep(600)
-            val value = count.get()
-            Log.i("CameraPreviewTest", String.format("count: %d", value))
-            if (value > 0) return
-        }
-        Assert.assertNotEquals(0, count.get().toLong())
+        // wait until onImageAvailable is invoked.
+        val success = latch.await(3000, TimeUnit.MILLISECONDS)
+        Assert.assertTrue("onImageAvailable was not invoked", success)
     }
 }
