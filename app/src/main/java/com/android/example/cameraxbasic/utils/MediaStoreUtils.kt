@@ -48,10 +48,9 @@ class MediaStoreUtils(private val context: Context) {
     private suspend fun getMediaStoreImageCursor(mediaStoreCollection: Uri): Cursor? {
         var cursor: Cursor?
         withContext(Dispatchers.IO) {
-            val projection = arrayOf(imageDataColumnIndex, imageIdColumnIndex)
             val sortOrder = "DATE_ADDED DESC"
             cursor = context.contentResolver.query(
-                mediaStoreCollection, projection, null, null, sortOrder
+                mediaStoreCollection, PROJECTION, null, null, sortOrder
             )
         }
         return cursor
@@ -98,6 +97,7 @@ class MediaStoreUtils(private val context: Context) {
         @Suppress("DEPRECATION")
         private const val imageDataColumnIndex = MediaStore.Images.Media.DATA
         private const val imageIdColumnIndex = MediaStore.Images.Media._ID
+        private val PROJECTION = arrayOf(imageDataColumnIndex, imageIdColumnIndex)
     }
 }
 
