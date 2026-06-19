@@ -199,7 +199,7 @@ class OpenCamService : LifecycleService() {
     }
 }
 
-class CameraServer(port: Int = 8080) : NanoHTTPD(port) {
+class CameraServer(hostname: String = "127.0.0.1", port: Int = 8080) : NanoHTTPD(hostname, port) {
     override fun serve(session: IHTTPSession): Response {
         return if (session.uri == "/cam") {
             val frame = OpenCamService.latestFrame
